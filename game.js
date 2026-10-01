@@ -1,33 +1,3 @@
-// Rise And Fall - 3D Gun-Fu Engine (Raven Character Mesh + FX)
-
-let scene, camera, renderer, player, floor;
-let moveJoystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
-let bullets = [];
-let enemies = [];
-let particles = [];
-let muzzleFlashes = [];
-let score = 0;
-
-function init() {
-    scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x050508, 0.04);
-
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 14, 12);
-    camera.lookAt(0, 0, 0);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSizeAwesome! Kills counter, enemy spawning, aur combat VFX ekdam smooth chal rahe hain!
-
-Ab game ko next level par le jane ke liye hum **Muzzle Flash (Gun Lighting)** aur **Close-Range Execution Mechanic** add karenge. Isse jab enemy bilkul paas aayega, tab ek special John Wick-style close-up takedown execute hoga.
-
----
-
-### Step 5: Muzzle Flash & Close-Range Execution Upgrade
-
-GitHub par `game.js` file ko **In place** edit karke poora code replace kar dein:
-
-```javascript
 // Rise And Fall - Gun-Fu Action (Muzzle Flash + Executions)
 
 let scene, camera, renderer, player, floor;
@@ -86,9 +56,7 @@ function init() {
     player.position.y = 0.9;
     scene.add(player);
 
-    if(!document.getElementById('joystick-zone')) {
-        createMobileUI();
-    }
+    createMobileUI();
 
     setInterval(spawnEnemy, 2200);
 
@@ -200,14 +168,13 @@ function shootBullet() {
 }
 
 function performTakedown() {
-    // Check close range enemies for Gun-Fu execution
     enemies.forEach((e, idx) => {
         if (player.position.distanceTo(e.position) < 2.5) {
             triggerMuzzleFlash();
-            createHitParticles(e.position, 20, 0xffff00); // Critical spark blast
+            createHitParticles(e.position, 20, 0xffff00);
             scene.remove(e);
             enemies.splice(idx, 1);
-            score += 2; // Bonus score for takedown
+            score += 2;
             document.getElementById('score').innerText = score;
         }
     });
@@ -227,7 +194,6 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
 
-    // Muzzle light fade out
     if (muzzleLight.intensity > 0) {
         muzzleLight.intensity -= 0.8;
     }
@@ -282,4 +248,4 @@ function animate() {
 }
 
 window.onload = init;
-        
+                          
