@@ -1,4 +1,34 @@
-// Rise And Fall - 3D Gun-Fu Engine (Enemies + Combat FX)
+// Rise And Fall - 3D Gun-Fu Engine (Raven Character Mesh + FX)
+
+let scene, camera, renderer, player, floor;
+let moveJoystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
+let bullets = [];
+let enemies = [];
+let particles = [];
+let muzzleFlashes = [];
+let score = 0;
+
+function init() {
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x050508, 0.04);
+
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 14, 12);
+    camera.lookAt(0, 0, 0);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSizeAwesome! Kills counter, enemy spawning, aur combat VFX ekdam smooth chal rahe hain!
+
+Ab game ko next level par le jane ke liye hum **Muzzle Flash (Gun Lighting)** aur **Close-Range Execution Mechanic** add karenge. Isse jab enemy bilkul paas aayega, tab ek special John Wick-style close-up takedown execute hoga.
+
+---
+
+### Step 5: Muzzle Flash & Close-Range Execution Upgrade
+
+GitHub par `game.js` file ko **In place** edit karke poora code replace kar dein:
+
+```javascript
+// Rise And Fall - Gun-Fu Action (Muzzle Flash + Executions)
 
 let scene, camera, renderer, player, floor;
 let moveJoystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
@@ -6,6 +36,7 @@ let bullets = [];
 let enemies = [];
 let particles = [];
 let score = 0;
+let muzzleLight;
 
 function init() {
     scene = new THREE.Scene();
@@ -21,7 +52,7 @@ function init() {
     renderer.shadowMap.enabled = true;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    // Neon Lights
+    // Ambient & Neon Lighting
     const ambientLight = new THREE.AmbientLight(0x1a1a24, 0.8);
     scene.add(ambientLight);
 
@@ -33,7 +64,11 @@ function init() {
     pinkNeon.position.set(6, 5, -3);
     scene.add(pinkNeon);
 
-    // Dark Floor & Grid
+    // Dynamic Muzzle Flash Light
+    muzzleLight = new THREE.PointLight(0xffffaa, 0, 10);
+    scene.add(muzzleLight);
+
+    // Reflective Floor & Grid
     const floorGeo = new THREE.PlaneGeometry(50, 50);
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0f, roughness: 0.2, metalness: 0.8 });
     floor = new THREE.Mesh(floorGeo, floorMat);
@@ -44,20 +79,18 @@ function init() {
     grid.position.y = 0.01;
     scene.add(grid);
 
-    // Player (Raven Placeholder)
+    // Raven Character Base Mesh
     const playerGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 16);
     const playerMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0x44001a, roughness: 0.3 });
     player = new THREE.Mesh(playerGeo, playerMat);
     player.position.y = 0.9;
     scene.add(player);
 
-    // Mobile UI Setup
     if(!document.getElementById('joystick-zone')) {
         createMobileUI();
     }
 
-    // Spawn initial enemies
-    setInterval(spawnEnemy, 2500);
+    setInterval(spawnEnemy, 2200);
 
     window.addEventListener('resize', onWindowResize, false);
     animate();
@@ -70,9 +103,10 @@ function createMobileUI() {
         <div id="joystick-zone" style="position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; border: 2px solid rgba(0,255,255,0.4); border-radius: 50%; touch-action: none;">
             <div id="joystick-stick" style="position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(0,255,255,0.6); border-radius: 50%;"></div>
         </div>
-        <div style="position: absolute; bottom: 30px; right: 30px; display: flex; gap: 15px;">
-            <button id="btn-shoot" style="width: 70px; height: 70px; border-radius: 50%; background: #ff0055; color: white; font-weight: bold; border: none; box-shadow: 0 0 12px #ff0055; touch-action: manipulation;">FIRE</button>
-            <button id="btn-dodge" style="width: 60px; height: 60px; border-radius: 50%; background: #00ffff; color: black; font-weight: bold; border: none; box-shadow: 0 0 12px #00ffff; touch-action: manipulation;">DODGE</button>
+        <div style="position: absolute; bottom: 30px; right: 30px; display: flex; gap: 12px;">
+            <button id="btn-shoot" style="width: 65px; height: 65px; border-radius: 50%; background: #ff0055; color: white; font-weight: bold; border: none; box-shadow: 0 0 12px #ff0055; touch-action: manipulation;">FIRE</button>
+            <button id="btn-execute" style="width: 65px; height: 65px; border-radius: 50%; background: #ffff00; color: black; font-weight: bold; border: none; box-shadow: 0 0 12px #ffff00; touch-action: manipulation;">TAKEDOWN</button>
+            <button id="btn-dodge" style="width: 55px; height: 55px; border-radius: 50%; background: #00ffff; color: black; font-weight: bold; border: none; box-shadow: 0 0 12px #00ffff; touch-action: manipulation;">DODGE</button>
         </div>
     `;
     document.body.appendChild(ui);
@@ -106,6 +140,7 @@ function createMobileUI() {
     });
 
     document.getElementById('btn-shoot').addEventListener('click', shootBullet);
+    document.getElementById('btn-execute').addEventListener('click', performTakedown);
     document.getElementById('btn-dodge').addEventListener('click', dodgeRoll);
 }
 
@@ -115,7 +150,6 @@ function spawnEnemy() {
     const mat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 0.5 });
     const enemy = new THREE.Mesh(geo, mat);
     
-    // Spawn at random border positions
     const angle = Math.random() * Math.PI * 2;
     enemy.position.x = player.position.x + Math.cos(angle) * 15;
     enemy.position.z = player.position.z + Math.sin(angle) * 15;
@@ -125,26 +159,34 @@ function spawnEnemy() {
     enemies.push(enemy);
 }
 
-function createHitParticles(pos) {
-    for (let i = 0; i < 8; i++) {
+function createHitParticles(pos, count = 8, color = 0xff0033) {
+    for (let i = 0; i < count; i++) {
         const pGeo = new THREE.SphereGeometry(0.08, 4, 4);
-        const pMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
+        const pMat = new THREE.MeshBasicMaterial({ color: color });
         const particle = new THREE.Mesh(pGeo, pMat);
         particle.position.copy(pos);
         particle.userData = {
             vel: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.3,
-                Math.random() * 0.2,
-                (Math.random() - 0.5) * 0.3
+                (Math.random() - 0.5) * 0.4,
+                Math.random() * 0.3,
+                (Math.random() - 0.5) * 0.4
             ),
-            life: 20
+            life: 25
         };
         scene.add(particle);
         particles.push(particle);
     }
 }
 
+function triggerMuzzleFlash() {
+    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
+    muzzleLight.position.copy(player.position).add(dir.multiplyScalar(0.8));
+    muzzleLight.intensity = 8;
+}
+
 function shootBullet() {
+    triggerMuzzleFlash();
+
     const geo = new THREE.SphereGeometry(0.15, 8, 8);
     const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     const bullet = new THREE.Mesh(geo, mat);
@@ -155,6 +197,20 @@ function shootBullet() {
     
     scene.add(bullet);
     bullets.push(bullet);
+}
+
+function performTakedown() {
+    // Check close range enemies for Gun-Fu execution
+    enemies.forEach((e, idx) => {
+        if (player.position.distanceTo(e.position) < 2.5) {
+            triggerMuzzleFlash();
+            createHitParticles(e.position, 20, 0xffff00); // Critical spark blast
+            scene.remove(e);
+            enemies.splice(idx, 1);
+            score += 2; // Bonus score for takedown
+            document.getElementById('score').innerText = score;
+        }
+    });
 }
 
 function dodgeRoll() {
@@ -171,7 +227,11 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
 
-    // Movement Logic
+    // Muzzle light fade out
+    if (muzzleLight.intensity > 0) {
+        muzzleLight.intensity -= 0.8;
+    }
+
     if (moveJoystick.active) {
         let speed = 0.12;
         player.position.x += moveJoystick.moveX * speed;
@@ -179,11 +239,9 @@ function animate() {
         player.rotation.y = Math.atan2(moveJoystick.moveX, moveJoystick.moveY);
     }
 
-    // Camera follow
     camera.position.x = player.position.x;
     camera.position.z = player.position.z + 12;
 
-    // Bullet updates & Hit Collisions
     bullets.forEach((b, bIdx) => {
         b.position.add(b.userData.velocity);
         
@@ -205,14 +263,12 @@ function animate() {
         }
     });
 
-    // Enemy AI Movement towards Player
     enemies.forEach((e) => {
         const dir = new THREE.Vector3().subVectors(player.position, e.position).normalize();
         e.position.add(dir.multiplyScalar(0.04));
         e.lookAt(player.position);
     });
 
-    // Blood Particles Animation
     particles.forEach((p, pIdx) => {
         p.position.add(p.userData.vel);
         p.userData.life--;
@@ -226,3 +282,4 @@ function animate() {
 }
 
 window.onload = init;
+        
