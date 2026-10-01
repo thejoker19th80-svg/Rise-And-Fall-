@@ -1,16 +1,27 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Rise And Fall - AI Game</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rise And Fall - Gun-Fu Action</title>
     <style>
-        body { margin: 0; background: #111; text-align: center; color: white; font-family: sans-serif; }
-        canvas { background: #000; border: 2px solid #555; display: block; margin: 20px auto; }
+        body { margin: 0; overflow: hidden; background: #050508; font-family: sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #ui-overlay {
+            position: absolute; top: 15px; left: 15px; color: #00ffff;
+            text-shadow: 0 0 8px #00ffff; font-size: 18px; font-weight: bold;
+            pointer-events: none;
+        }
     </style>
+    <!-- Three.js 3D Engine Import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <h1>Rise And Fall - AI Game</h1>
-    <p>Player: Cyan | AI Enemy: Pink (Chase Mode)</p>
-    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <div id="ui-overlay">
+        RISE AND FALL: GUN-FU ACTION<br>
+        <small style="color: #ff0055;">Character: Raven | Mode: Neon Chamber</small>
+    </div>
+    <div id="canvas-container"></div>
     <script src="game.js"></script>
 </body>
 </html>
