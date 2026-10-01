@@ -1,28 +1,27 @@
-// Rise And Fall - 3D Gun-Fu Action Engine with Touch Controls
+// Rise And Fall - 3D Gun-Fu Engine (Enemies + Combat FX)
 
 let scene, camera, renderer, player, floor;
 let moveJoystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
 let bullets = [];
-let keys = {};
+let enemies = [];
+let particles = [];
+let score = 0;
 
 function init() {
-    // 1. Scene & Fog Setup
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x050508, 0.04);
 
-    // 2. Camera Setup
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 14, 12);
     camera.lookAt(0, 0, 0);
 
-    // 3. WebGL Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    // 4. John Wick Neon Lights
+    // Neon Lights
     const ambientLight = new THREE.AmbientLight(0x1a1a24, 0.8);
     scene.add(ambientLight);
 
@@ -34,37 +33,40 @@ function init() {
     pinkNeon.position.set(6, 5, -3);
     scene.add(pinkNeon);
 
-    // 5. Dark Reflective Ground
-    const floorGeo = new THREE.PlaneGeometry(40, 40);
+    // Dark Floor & Grid
+    const floorGeo = new THREE.PlaneGeometry(50, 50);
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0f, roughness: 0.2, metalness: 0.8 });
     floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
-    // Grid Floor Overlay for Depth
-    const grid = new THREE.GridHelper(40, 20, 0xff0055, 0x222233);
+    const grid = new THREE.GridHelper(50, 25, 0xff0055, 0x222233);
     grid.position.y = 0.01;
     scene.add(grid);
 
-    // 6. Character Base (Raven Placeholder)
+    // Player (Raven Placeholder)
     const playerGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 16);
     const playerMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0x44001a, roughness: 0.3 });
     player = new THREE.Mesh(playerGeo, playerMat);
     player.position.y = 0.9;
     scene.add(player);
 
-    // Create On-Screen Mobile Touch UI
-    createMobileUI();
+    // Mobile UI Setup
+    if(!document.getElementById('joystick-zone')) {
+        createMobileUI();
+    }
 
-    // Responsive Window Resize
+    // Spawn initial enemies
+    setInterval(spawnEnemy, 2500);
+
     window.addEventListener('resize', onWindowResize, false);
-
     animate();
 }
 
 function createMobileUI() {
     const ui = document.createElement('div');
     ui.innerHTML = `
+        <div id="score-card" style="position: absolute; top: 50px; left: 15px; color: #ff0055; text-shadow: 0 0 8px #ff0055; font-size: 20px; font-weight: bold; font-family: sans-serif;">KILLS: <span id="score">0</span></div>
         <div id="joystick-zone" style="position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; border: 2px solid rgba(0,255,255,0.4); border-radius: 50%; touch-action: none;">
             <div id="joystick-stick" style="position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(0,255,255,0.6); border-radius: 50%;"></div>
         </div>
@@ -75,7 +77,6 @@ function createMobileUI() {
     `;
     document.body.appendChild(ui);
 
-    // Touch Joystick Events
     const zone = document.getElementById('joystick-zone');
     const stick = document.getElementById('joystick-stick');
 
@@ -94,7 +95,6 @@ function createMobileUI() {
         
         moveJoystick.moveX = Math.cos(angle) * (dist / 40);
         moveJoystick.moveY = Math.sin(angle) * (dist / 40);
-
         stick.style.transform = `translate(${moveJoystick.moveX * 30}px, ${moveJoystick.moveY * 30}px)`;
     });
 
@@ -105,9 +105,43 @@ function createMobileUI() {
         stick.style.transform = `translate(0px, 0px)`;
     });
 
-    // Action Buttons
     document.getElementById('btn-shoot').addEventListener('click', shootBullet);
     document.getElementById('btn-dodge').addEventListener('click', dodgeRoll);
+}
+
+function spawnEnemy() {
+    if (enemies.length >= 8) return;
+    const geo = new THREE.BoxGeometry(0.8, 1.8, 0.8);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 0.5 });
+    const enemy = new THREE.Mesh(geo, mat);
+    
+    // Spawn at random border positions
+    const angle = Math.random() * Math.PI * 2;
+    enemy.position.x = player.position.x + Math.cos(angle) * 15;
+    enemy.position.z = player.position.z + Math.sin(angle) * 15;
+    enemy.position.y = 0.9;
+    
+    scene.add(enemy);
+    enemies.push(enemy);
+}
+
+function createHitParticles(pos) {
+    for (let i = 0; i < 8; i++) {
+        const pGeo = new THREE.SphereGeometry(0.08, 4, 4);
+        const pMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
+        const particle = new THREE.Mesh(pGeo, pMat);
+        particle.position.copy(pos);
+        particle.userData = {
+            vel: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.3,
+                Math.random() * 0.2,
+                (Math.random() - 0.5) * 0.3
+            ),
+            life: 20
+        };
+        scene.add(particle);
+        particles.push(particle);
+    }
 }
 
 function shootBullet() {
@@ -116,18 +150,16 @@ function shootBullet() {
     const bullet = new THREE.Mesh(geo, mat);
     bullet.position.copy(player.position);
     
-    // Calculate direction player is facing
     const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
-    bullet.userData = { velocity: dir.multiplyScalar(0.6) };
+    bullet.userData = { velocity: dir.multiplyScalar(0.7) };
     
     scene.add(bullet);
     bullets.push(bullet);
 }
 
 function dodgeRoll() {
-    // Fast Gun-Fu dash
     const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(player.quaternion);
-    player.position.add(dir.multiplyScalar(2.5));
+    player.position.add(dir.multiplyScalar(2.8));
 }
 
 function onWindowResize() {
@@ -139,27 +171,54 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
 
-    // Joystick Movement logic
+    // Movement Logic
     if (moveJoystick.active) {
         let speed = 0.12;
         player.position.x += moveJoystick.moveX * speed;
         player.position.z += moveJoystick.moveY * speed;
-
-        // Rotate character towards movement
-        let angle = Math.atan2(moveJoystick.moveX, moveJoystick.moveY);
-        player.rotation.y = angle;
+        player.rotation.y = Math.atan2(moveJoystick.moveX, moveJoystick.moveY);
     }
 
-    // Camera Smooth Follow
+    // Camera follow
     camera.position.x = player.position.x;
     camera.position.z = player.position.z + 12;
 
-    // Bullet Trajectory Update
-    bullets.forEach((b, idx) => {
+    // Bullet updates & Hit Collisions
+    bullets.forEach((b, bIdx) => {
         b.position.add(b.userData.velocity);
+        
+        enemies.forEach((e, eIdx) => {
+            if (b.position.distanceTo(e.position) < 0.8) {
+                createHitParticles(e.position);
+                scene.remove(e);
+                scene.remove(b);
+                enemies.splice(eIdx, 1);
+                bullets.splice(bIdx, 1);
+                score += 1;
+                document.getElementById('score').innerText = score;
+            }
+        });
+
         if (b.position.distanceTo(player.position) > 30) {
             scene.remove(b);
-            bullets.splice(idx, 1);
+            bullets.splice(bIdx, 1);
+        }
+    });
+
+    // Enemy AI Movement towards Player
+    enemies.forEach((e) => {
+        const dir = new THREE.Vector3().subVectors(player.position, e.position).normalize();
+        e.position.add(dir.multiplyScalar(0.04));
+        e.lookAt(player.position);
+    });
+
+    // Blood Particles Animation
+    particles.forEach((p, pIdx) => {
+        p.position.add(p.userData.vel);
+        p.userData.life--;
+        if (p.userData.life <= 0) {
+            scene.remove(p);
+            particles.splice(pIdx, 1);
         }
     });
 
